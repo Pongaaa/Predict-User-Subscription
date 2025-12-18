@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Shopping Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .error-msg { color: #dc3545; font-size: 0.85rem; margin-top: 4px; display: none; }
+        .is-invalid { border-color: #dc3545 !important; background-image: none !important; }
+        .card { border-radius: 12px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .nav-link { font-weight: 600; color: #555; }
+        .nav-pills .nav-link.active { background-color: #0d6efd; }
+        
+        /* Hiệu ứng thanh Progress */
+        .progress { height: 35px; border-radius: 8px; background-color: #e9ecef; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); }
+        .progress-bar { font-weight: bold; font-size: 1.1rem; line-height: 35px; transition: width 0.6s ease-in-out; }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold text-primary">🛍️ Phân tích Hành vi Mua sắm</h2>
+        <p class="text-muted">Dự đoán khả năng đăng ký thành viên (Subscription Prediction)</p>
+    </div>
+
+    <ul class="nav nav-pills justify-content-center mb-4" id="mainTab">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#dash">Dashboard</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#data">Dữ liệu gốc</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#ai">Dự đoán AI</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="dash">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card p-3">
+                        <h6 class="text-center">Tỉ lệ Đăng ký (Thực tế)</h6>
+                        <div style="height: 300px; display: flex; justify-content: center;">
+                            <canvas id="chartTarget"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card p-3">
+                        <h6 class="text-center">Phân bổ Giới tính</h6>
+                        <div style="height: 300px;">
+                            <canvas id="chartGender"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="data">
+            <div class="card p-4 table-responsive" style="max-height: 500px;">
+                <table class="table table-sm table-hover" id="rawTable">
+                    <thead class="table-light sticky-top">
+                        <tr><th>Tuổi</th><th>Giới tính</th><th>Chi tiêu ($)</th><th>Lần mua</th><th>Rating</th><th>Thành viên?</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="ai">
+            <div class="row justify-content-center">
+                <div class="col-md-5">
+                    <div class="card p-4">
+                        <h5 class="mb-3 text-center">Nhập thông tin khách hàng</h5>
+                        <form id="formPredict">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Tuổi (18 - 70)</label>
+                                <input type="number" id="Age" class="form-control" value="25" min="18" max="70">
+                                <span class="error-msg" id="err-Age">Độ tuổi trong dataset từ 18 đến 70.</span>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Giới tính</label>
+                                <select id="Gender" class="form-select">
+                                    <option value="Male">Nam</option>
+                                    <option value="Female">Nữ</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Số tiền chi tiêu ($20 - $100)</label>
+                                <input type="number" id="PurchaseAmount" class="form-control" value="50" min="20" max="100">
+                                <span class="error-msg" id="err-PurchaseAmount">Chi tiêu hợp lệ từ 20 đến 100 USD.</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Số lần mua trước đó</label>
+                                <input type="number" id="PreviousPurchases" class="form-control" value="10" min="1">
+                                <span class="error-msg" id="err-PreviousPurchases">Tối thiểu là 1 lần.</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Đánh giá (2.5 - 5.0)</label>
+                                <input type="number" step="0.1" id="ReviewRating" class="form-control" value="4.0" min="2.5" max="5.0">
+                                <span class="error-msg" id="err-ReviewRating">Rating dataset chỉ từ 2.5 đến 5.0.</span>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold">Danh mục sản phẩm</label>
+                                <select id="Category" class="form-select">
+                                    <option value="Clothing">Quần áo (Clothing)</option>
+                                    <option value="Footwear">Giày dép (Footwear)</option>
+                                    <option value="Accessories">Phụ kiện (Accessories)</option>
+                                    <option value="Outerwear">Áo khoác (Outerwear)</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" id="btnSubmit" class="btn btn-primary w-100 fw-bold">PHÂN TÍCH NGAY</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="col-md-5 mt-4 mt-md-0">
+                    <div class="card p-4 h-100 justify-content-center d-none" id="resultCard">
+                        <h5 class="text-center mb-4">Kết quả Phân tích</h5>
+                        
+                        <div class="text-center mb-2 fw-bold" id="probLabelTitle"></div>
+
+                        <div class="progress mb-4">
+                            <div id="dynamicBar" class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+                        </div>
+
+                        <div id="finalConclusion" class="alert text-center fw-bold"></div>
+                        
+                        <p class="small text-muted fst-italic mt-2 text-center">
+                            *Lưu ý: Kết quả dựa trên mô hình Logistic Regression với ngưỡng 0.55.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // --- 1. REAL-TIME VALIDATION CHO DATASET ---
+    const validators = {
+        Age: (val) => val >= 18 && val <= 70,
+        PurchaseAmount: (val) => val >= 20 && val <= 100,
+        PreviousPurchases: (val) => val >= 1,
+        ReviewRating: (val) => val >= 2.5 && val <= 5.0
+    };
+
+    function validateInput(id) {
+        const input = document.getElementById(id);
+        const errorMsg = document.getElementById(`err-${id}`);
+        const val = parseFloat(input.value);
+        
+        if (!input.value || isNaN(val) || !validators[id](val)) {
+            input.classList.add('is-invalid');
+            if(errorMsg) errorMsg.style.display = 'block';
+            return false;
+        } else {
+            input.classList.remove('is-invalid');
+            if(errorMsg) errorMsg.style.display = 'none';
+            return true;
+        }
+    }
+
+    function checkAllValid() {
+        const ids = ['Age', 'PurchaseAmount', 'PreviousPurchases', 'ReviewRating'];
+        let allValid = true;
+        ids.forEach(id => {
+            if (!validateInput(id)) allValid = false;
+        });
+        document.getElementById('btnSubmit').disabled = !allValid;
+    }
+
+    ['Age', 'PurchaseAmount', 'PreviousPurchases', 'ReviewRating'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => checkAllValid());
+    });
+
+
+    // --- 2. LOGIC DASHBOARD & PREDICT ---
+    async function initDashboard() {
+        try {
+            const res = await fetch('/get_data');
+            const data = await res.json();
+            if(data.length === 0) return;
+
+            const tbody = document.querySelector('#rawTable tbody');
+            data.forEach(r => {
+                tbody.innerHTML += `<tr>
+                    <td>${r.Age}</td>
+                    <td>${r.Gender}</td>
+                    <td>${r['Purchase Amount (USD)']}</td>
+                    <td>${r['Previous Purchases']}</td>
+                    <td>${r['Review Rating']}</td>
+                    <td><span class="badge ${r['Subscription Status'] === 'Yes' ? 'bg-success' : 'bg-secondary'}">${r['Subscription Status']}</span></td>
+                </tr>`;
+            });
+
+            new Chart(document.getElementById('chartTarget'), { 
+                type: 'doughnut', 
+                data: { labels: ['Chưa đăng ký', 'Đã đăng ký'], datasets: [{ data: [73, 27], backgroundColor: ['#e9ecef', '#ffc107'] }] } 
+            });
+            
+            new Chart(document.getElementById('chartGender'), { 
+                type: 'bar', 
+                data: { labels: ['Nam', 'Nữ'], datasets: [{ label: 'Khách hàng', data: [2652, 1248], backgroundColor: ['#36a2eb', '#ff6384'] }] } 
+            });
+        } catch (e) { console.log("Chưa load được dữ liệu dashboard"); }
+    }
+    initDashboard();
+
+    // --- 3. XỬ LÝ NÚT PHÂN TÍCH (QUAN TRỌNG NHẤT) ---
+    document.getElementById('formPredict').onsubmit = async (e) => {
+        e.preventDefault();
+        
+        const btn = document.getElementById('btnSubmit');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xử lý...';
+        btn.disabled = true;
+
+        const payload = {
+            Age: document.getElementById('Age').value,
+            Gender: document.getElementById('Gender').value,
+            PurchaseAmount: document.getElementById('PurchaseAmount').value,
+            PreviousPurchases: document.getElementById('PreviousPurchases').value,
+            ReviewRating: document.getElementById('ReviewRating').value,
+            Category: document.getElementById('Category').value
+        };
+
+        try {
+            const res = await fetch('/predict', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(payload) 
+            });
+            const result = await res.json();
+            
+            // Hiển thị Card kết quả
+            const resCard = document.getElementById('resultCard');
+            resCard.classList.remove('d-none');
+            
+            // Lấy các element hiển thị
+            const dynamicBar = document.getElementById('dynamicBar');
+            const labelTitle = document.getElementById('probLabelTitle');
+            const concl = document.getElementById('finalConclusion');
+            
+            // Reset width để có hiệu ứng chạy lại
+            dynamicBar.style.width = '0%';
+
+            // --- LOGIC HIỂN THỊ CÓ ĐIỀU KIỆN ---
+            setTimeout(() => {
+                if (result.prediction === 'Yes') {
+                    // TRƯỜNG HỢP 1: DỰ ĐOÁN LÀ CÓ (YES)
+                    labelTitle.innerText = "Độ tin cậy: XÁC SUẤT SẼ ĐĂNG KÝ";
+                    labelTitle.className = "text-center mb-2 fw-bold text-success";
+                    
+                    dynamicBar.className = "progress-bar bg-success"; // Màu xanh
+                    dynamicBar.style.width = `${result.prob_yes}%`;
+                    dynamicBar.innerText = `${result.prob_yes}%`;
+                    
+                    concl.className = 'alert alert-success text-center fw-bold';
+                    concl.innerHTML = `✅ KHẢ NĂNG CAO SẼ ĐĂNG KÝ`;
+                } else {
+                    // TRƯỜNG HỢP 2: DỰ ĐOÁN LÀ KHÔNG (NO)
+                    labelTitle.innerText = "Độ tin cậy: XÁC SUẤT KHÔNG ĐĂNG KÝ";
+                    labelTitle.className = "text-center mb-2 fw-bold text-danger";
+                    
+                    // Nếu backend trả về prob_no thì dùng, không thì tự tính (100 - prob_yes)
+                    let probabilityNo = result.prob_no ? result.prob_no : (100 - result.prob_yes).toFixed(1);
+                    
+                    dynamicBar.className = "progress-bar bg-danger"; // Màu đỏ
+                    dynamicBar.style.width = `${probabilityNo}%`;
+                    dynamicBar.innerText = `${probabilityNo}%`;
+                    
+                    concl.className = 'alert alert-secondary text-center fw-bold';
+                    concl.innerHTML = `❌ KHÁCH SẼ KHÔNG ĐĂNG KÝ`;
+                }
+            }, 100);
+
+        } catch (err) {
+            alert("Có lỗi xảy ra khi dự đoán!");
+            console.error(err);
+        } finally {
+            btn.innerHTML = 'PHÂN TÍCH NGAY';
+            btn.disabled = false;
+        }
+    };
+</script>
+</body>
+</html>
