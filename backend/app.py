@@ -77,7 +77,7 @@ def predict():
     # 5. Dự đoán
     prob_yes = model.predict_proba(input_engineered)[0][1]
     prob_no = 1 - prob_yes
-    prediction_label = "Yes" if prob_yes >= 0.55 else "No" # Ngưỡng 0.55
+    prediction_label = "Yes" if prob_yes >= 0.6 else "No" # Ngưỡng 0.55
 
     return jsonify({
         'prediction': prediction_label,
