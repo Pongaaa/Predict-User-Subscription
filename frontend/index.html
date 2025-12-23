@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shopping Behavior Analysis</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <style>
+        body { background-color: #f8f9fc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border-radius: 10px; border: none; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 20px; }
+        .chart-container { position: relative; height: 250px; width: 100%; }
+        h6 { font-weight: 700; color: #4e73df; text-align: center; margin-bottom: 15px; text-transform: uppercase; font-size: 0.85rem; }
+        .nav-pills .nav-link.active { background-color: #4e73df; }
+        
+        /* Table Styles */
+        .table-responsive { max-height: 600px; overflow-y: auto; }
+        thead th { position: sticky; top: 0; background-color: #eaecf4; z-index: 1; color: #333; }
+        .table-sm td, .table-sm th { font-size: 0.85rem; vertical-align: middle; }
+    </style>
+</head>
+<body>
+
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold text-dark">🛍️ Shopping Data Explorer</h2>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-pills justify-content-center mb-4" id="pills-tab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-data">Home</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-dashboard">Insight</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-predict">Predict</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        
+        <!-- TAB 1: DASHBOARD -->
+        <div class="tab-pane fade" id="pills-dashboard">
+            <div id="loading" class="text-center my-5"><div class="spinner-border text-primary"></div><p>Loading data...</p></div>
+            <div id="charts-area" style="display: none;">
+                <div class="row">
+                    <div class="col-md-4"><div class="card p-3"><h6>1. Subscription Status (%)</h6><div class="chart-container"><canvas id="chart1"></canvas></div></div></div>
+                    <div class="col-md-4"><div class="card p-3"><h6>2. Subscription Rate by Discount (%)</h6><div class="chart-container"><canvas id="chart2"></canvas></div></div></div>
+                    <div class="col-md-4"><div class="card p-3"><h6>3. Season vs. Purchase Amount ($)</h6><div class="chart-container"><canvas id="chart3"></canvas></div></div></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4"><div class="card p-3"><h6>4. Category by Season (Stacked)</h6><div class="chart-container"><canvas id="chart4"></canvas></div></div></div>
+                    <div class="col-md-4"><div class="card p-3"><h6>5. Avg. Spend by Age Group</h6><div class="chart-container"><canvas id="chart5"></canvas></div></div></div>
+                    <div class="col-md-4"><div class="card p-3"><h6>6. Gender Distribution</h6><div class="chart-container"><canvas id="chart6"></canvas></div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: DATA TABLE -->
+        <div class="tab-pane fade show active" id="pills-data">
+            <div class="card p-4">
+                <!-- Data Filters -->
+                <div class="row g-2 mb-3 align-items-end">
+                    <div class="col-md-12"><h6 class="text-start text-primary"><i class="bi bi-table"></i> Filter Data Table</h6></div>
+                    
+                    <div class="col-md-3">
+                        <label class="small fw-bold">Gender</label>
+                        <select id="tFilterGender" class="form-select form-select-sm" onchange="filterTable()">
+                            <option value="All">All</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small fw-bold">Category</label>
+                        <select id="tFilterCategory" class="form-select form-select-sm" onchange="filterTable()">
+                            <option value="All">All</option>
+                            <option value="Clothing">Clothing</option>
+                            <option value="Footwear">Footwear</option>
+                            <option value="Accessories">Accessories</option>
+                            <option value="Outerwear">Outerwear</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small fw-bold">Season</label>
+                        <select id="tFilterSeason" class="form-select form-select-sm" onchange="filterTable()">
+                            <option value="All">All</option>
+                            <option value="Winter">Winter</option>
+                            <option value="Spring">Spring</option>
+                            <option value="Summer">Summer</option>
+                            <option value="Fall">Fall</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small fw-bold">Subscription</label>
+                        <select id="tFilterSub" class="form-select form-select-sm" onchange="filterTable()">
+                            <option value="All">All</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-secondary" id="tableCount">Showing: 0 rows</span>
+                    <small class="text-muted fst-italic">* Displaying top 100 matches for performance</small>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover table-bordered" id="dataTable">
+                        <thead class="table-light"><tr id="tableHeader"></tr></thead>
+                        <tbody id="tableBody"><tr><td colspan="10" class="text-center">Initializing...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: PREDICTION -->
+        <div class="tab-pane fade" id="pills-predict">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card p-4">
+                        <h5 class="text-center mb-3">Customer Input</h5>
+                        <form id="predictionForm">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Age (>=18)</label>
+                                    <!-- Thêm id="Age" để JS bắt sự kiện -->
+                                    <input type="number" id="Age" class="form-control" value="30" min="18">
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Gender</label>
+                                    <select id="Gender" class="form-select"><option value="Male">Male</option><option value="Female">Female</option></select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Purchase Amount (>=20$)</label>
+                                <!-- Thêm id="PurchaseAmount" -->
+                                <input type="number" id="PurchaseAmount" class="form-control" value="60" min="20">
+                            </div>
+                            <div class="mb-3"><label class="form-label">Category</label>
+                                <select id="Category" class="form-select">
+                                    <option value="Clothing">Clothing</option><option value="Footwear">Footwear</option><option value="Accessories">Accessories</option><option value="Outerwear">Outerwear</option>
+                                </select>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Rating (2.5 - 5.0)</label>
+                                    <!-- Thêm id="ReviewRating" -->
+                                    <input type="number" step="0.1" id="ReviewRating" class="form-control" value="4.5" min="2.5" max="5.0">
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Prev. Purchases</label>
+                                    <input type="number" id="PreviousPurchases" class="form-control" value="5">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">PREDICT NOW</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-4 text-center h-100 d-none" id="resultCard">
+                        <h5>Prediction Result</h5><hr><h3 id="predLabel" class="fw-bold my-3">--</h3>
+                        <div class="progress mb-3" style="height: 25px;"><div id="probBar" class="progress-bar bg-success" style="width: 0%">0%</div></div>
+                        <p id="predMessage" class="text-muted small"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    Chart.register(ChartDataLabels);
+    let allData = []; 
+
+    // --- CHART HELPERS ---
+    function getValueCounts(data, key) { return data.reduce((acc, curr) => { acc[curr[key]] = (acc[curr[key]] || 0) + 1; return acc; }, {}); }
+    function getMeanByGroup(data, groupKey, valueKey) {
+        const sums={}, counts={};
+        data.forEach(d => { sums[d[groupKey]] = (sums[d[groupKey]]||0) + d[valueKey]; counts[d[groupKey]] = (counts[d[groupKey]]||0) + 1; });
+        const means={}; for(let k in sums) means[k] = sums[k]/counts[k]; return means;
+    }
+
+    // --- RENDER DASHBOARD ---
+    function renderCharts(data) {
+        const commonOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } };
+        
+        const c1 = getValueCounts(data, 'Subscription Status');
+        const total = data.length;
+        new Chart(document.getElementById('chart1'), {
+            type: 'bar', data: { labels: ['No', 'Yes'], datasets: [{ data: [((c1['No']||0)/total*100).toFixed(1), ((c1['Yes']||0)/total*100).toFixed(1)], backgroundColor: ['#66c2a5', '#fc8d62'] }] },
+            options: { ...commonOpts, plugins: { legend: { display: false }, datalabels: { display: true, anchor: 'end', align: 'top', formatter: v=>v+'%', font: {weight:'bold'} } }, scales: { y: { beginAtZero: true, max: 100 } } }
+        });
+
+        const disc = ['No', 'Yes'];
+        const r2 = disc.map(t => { const s = data.filter(d => d['Discount Applied']===t); return s.length ? ((s.filter(x => x['Subscription Status']==='Yes').length/s.length)*100).toFixed(1) : 0; });
+        new Chart(document.getElementById('chart2'), {
+            type: 'bar', data: { labels: disc, datasets: [{ label: 'Yes Rate', data: r2, backgroundColor: 'skyblue' }] },
+            options: { ...commonOpts, plugins: { legend: { display: false }, datalabels: { display: true, anchor: 'end', align: 'top', formatter: v=>v+'%', font: {weight:'bold'} } }, scales: { y: { beginAtZero: true, max: 100 } } }
+        });
+
+        const seasons = ['Winter', 'Spring', 'Summer', 'Fall'];
+        const m3 = getMeanByGroup(data, 'Season', 'Purchase Amount (USD)');
+        new Chart(document.getElementById('chart3'), { type: 'bar', data: { labels: seasons, datasets: [{ data: seasons.map(s => m3[s]||0), backgroundColor: ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3'] }] }, options: commonOpts });
+
+        const cats = [...new Set(data.map(d => d.Category))];
+        const ds4 = cats.map((cat, i) => ({ label: cat, data: seasons.map(s => data.filter(d => d.Season===s && d.Category===cat).length), backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e'][i%4] }));
+        new Chart(document.getElementById('chart4'), { type: 'bar', data: { labels: seasons, datasets: ds4 }, options: { ...commonOpts, scales: { x: { stacked: true }, y: { stacked: true } }, plugins: { legend: { display: true }, datalabels: {display:false} } } });
+
+        const aLabels = ['18-30', '31-45', '46-60', '60+'];
+        const dAge = data.map(d => { let g='60+'; if(d.Age<=30)g='18-30'; else if(d.Age<=45)g='31-45'; else if(d.Age<=60)g='46-60'; return {...d, AgeGroup:g}; });
+        const m5 = getMeanByGroup(dAge, 'AgeGroup', 'Purchase Amount (USD)');
+        new Chart(document.getElementById('chart5'), { type: 'bar', data: { labels: aLabels, datasets: [{ data: aLabels.map(l => m5[l]||0), backgroundColor: '#3182bd' }] }, options: commonOpts });
+
+        const c6 = getValueCounts(data, 'Gender');
+        const totG = (c6['Male']||0) + (c6['Female']||0);
+        new Chart(document.getElementById('chart6'), {
+            type: 'pie', data: { labels: ['Male', 'Female'], datasets: [{ data: [c6['Male']||0, c6['Female']||0], backgroundColor: ['#36b9cc', '#ff6384'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { color: '#fff', font: { weight: 'bold' }, formatter: (v) => totG ? ((v/totG)*100).toFixed(1)+'%' : '0%' } } }
+        });
+    }
+
+    // --- TABLE FILTER ---
+    function renderTable(dataToRender) {
+        const tbody = document.getElementById('tableBody');
+        const thead = document.getElementById('tableHeader');
+        document.getElementById('tableCount').innerText = `Matches found: ${dataToRender.length}`;
+
+        if (dataToRender.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">No matching records found.</td></tr>';
+            return;
+        }
+        if (thead.innerHTML === '') {
+            const displayCols = ['Customer ID', 'Age', 'Gender', 'Category', 'Purchase Amount (USD)', 'Season', 'Subscription Status', 'Payment Method'];
+            thead.innerHTML = '<th>#</th>' + displayCols.map(col => `<th>${col}</th>`).join('');
+        }
+        const displayCols = ['Customer ID', 'Age', 'Gender', 'Category', 'Purchase Amount (USD)', 'Season', 'Subscription Status', 'Payment Method'];
+        const limit = 100;
+        const subset = dataToRender.slice(0, limit);
+        tbody.innerHTML = subset.map((row, i) => {
+            return `<tr><td>${i+1}</td>` + displayCols.map(col => `<td>${row[col]}</td>`).join('') + `</tr>`;
+        }).join('');
+    }
+
+    function filterTable() {
+        const gender = document.getElementById('tFilterGender').value;
+        const category = document.getElementById('tFilterCategory').value;
+        const season = document.getElementById('tFilterSeason').value;
+        const sub = document.getElementById('tFilterSub').value;
+        const filtered = allData.filter(d => {
+            return (gender === 'All' || d.Gender === gender) && (category === 'All' || d.Category === category) && (season === 'All' || d.Season === season) && (sub === 'All' || d['Subscription Status'] === sub);
+        });
+        renderTable(filtered);
+    }
+
+    // --- INIT ---
+    async function initApp() {
+        try {
+            const res = await fetch('/get_data');
+            allData = await res.json();
+            document.getElementById('loading').style.display = 'none';
+            if(allData.length > 0) {
+                renderTable(allData); 
+                document.getElementById('charts-area').style.display = 'block';
+                renderCharts(allData);
+            } else { alert("No data."); }
+        } catch(e) { console.error(e); }
+    }
+    initApp();
+
+    // ============================================
+    // --- REAL-TIME VALIDATION (MỚI THÊM VÀO) ---
+    // ============================================
+
+    // 1. Kiểm tra Tuổi ngay khi rời khỏi ô nhập (blur)
+    document.getElementById('Age').addEventListener('change', function() {
+        const val = parseFloat(this.value);
+        if (isNaN(val) || val < 18) {
+            alert("⚠️ Invalid Age! You must be at least 18 years old.");
+            this.value = ""; // Xóa dữ liệu sai
+            setTimeout(() => this.focus(), 100); // Ép con trỏ chuột quay lại (delay nhỏ để trình duyệt xử lý)
+        }
+    });
+
+    // 2. Kiểm tra Tiền
+    document.getElementById('PurchaseAmount').addEventListener('change', function() {
+        const val = parseFloat(this.value);
+        if (isNaN(val) || val < 20) {
+            alert("⚠️ Invalid Amount! Minimum purchase is $20.");
+            this.value = "";
+            setTimeout(() => this.focus(), 100);
+        }
+    });
+
+    // 3. Kiểm tra Rating
+    document.getElementById('ReviewRating').addEventListener('change', function() {
+        const val = parseFloat(this.value);
+        if (isNaN(val) || val < 2.5 || val > 5.0) {
+            alert("⚠️ Invalid Rating! Must be between 2.5 and 5.0.");
+            this.value = "";
+            setTimeout(() => this.focus(), 100);
+        }
+    });
+
+    // --- PREDICTION LOGIC ---
+    document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Kiểm tra lần cuối (Double Check)
+        const age = document.getElementById('Age').value;
+        const amount = document.getElementById('PurchaseAmount').value;
+        const rating = document.getElementById('ReviewRating').value;
+
+        if(!age || !amount || !rating) {
+            alert("Please fill in all valid data!");
+            return;
+        }
+
+        document.getElementById('resultCard').classList.remove('d-none');
+        document.getElementById('predLabel').innerText = "Processing...";
+        
+        const payload = {
+            Age: age, Gender: document.getElementById('Gender').value,
+            PurchaseAmount: amount, Category: document.getElementById('Category').value,
+            ReviewRating: rating, PreviousPurchases: document.getElementById('PreviousPurchases').value
+        };
+        try {
+            const res = await fetch('/predict', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            const result = await res.json();
+            if(result.error) { alert(result.error); return; }
+            const isYes = result.prediction === 'Yes';
+            document.getElementById('predLabel').innerText = isYes ? "SUBSCRIBED" : "NOT SUBSCRIBED";
+            document.getElementById('predLabel').className = isYes ? "fw-bold my-3 text-success" : "fw-bold my-3 text-secondary";
+            document.getElementById('probBar').style.width = (isYes ? result.prob_yes : result.prob_no) + "%";
+            document.getElementById('probBar').innerText = (isYes ? result.prob_yes : result.prob_no) + "%";
+            document.getElementById('probBar').className = isYes ? "progress-bar bg-success" : "progress-bar bg-secondary";
+            document.getElementById('predMessage').innerText = result.message;
+        } catch (e) { alert("API Error"); }
+    });
+</script>
+</body>
+</html>
